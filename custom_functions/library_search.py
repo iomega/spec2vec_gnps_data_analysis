@@ -10,8 +10,9 @@ from future_matchms import ParentmassMatchParallel
 def library_matching(documents_query: List[SpectrumDocument],
                      documents_library: List[SpectrumDocument],
                      model,
-                     top_n: int = 10,
+                     presearch_based_on=["parentmass", "spec2vec-top10"],
                      ignore_non_annotated: bool = True,
+                     include_scores=["spec2vec", "cosine", "modcosine"],
                      intensity_weighting_power: float = 0.5,
                      allowed_missing_percentage: float = 0,
                      cosine_tol: float = 0.005,
@@ -45,6 +46,7 @@ def library_matching(documents_query: List[SpectrumDocument],
 
     # Initializations
     found_matches = []
+    m_spec2vec_similarities = []
 
     def get_metadata(documents):
         metadata = []
@@ -60,17 +62,25 @@ def library_matching(documents_query: List[SpectrumDocument],
         library_ids = np.arange(len(documents_library))
 
     # 1. Search for top-n Spec2Vec matches ------------------------------------
-    spec2vec = Spec2VecParallel(model=model, intensity_weighting_power=intensity_weighting_power,
-                                allowed_missing_percentage=allowed_missing_percentage)
-    m_spec2vec_similarities = spec2vec([documents_library[i] for i in library_ids], documents_query)
-
-    # Select top_n similarity values:
-    selection_spec2vec = np.argpartition(m_spec2vec_similarities, -top_n, axis=0)[-top_n:, :]
+    if np.any(["spec2vec" in x for x in presearch_based_on]):
+        top_n = int([x.split("top")[1] for x in presearch_based_on if "spec2vec" in x][0])
+        print("Pre-selection includes spec2vec top {top_n}.")
+        spec2vec = Spec2VecParallel(model=model, intensity_weighting_power=intensity_weighting_power,
+                                    allowed_missing_percentage=allowed_missing_percentage)
+        m_spec2vec_similarities = spec2vec([documents_library[i] for i in library_ids], documents_query)
+    
+        # Select top_n similarity values:
+        selection_spec2vec = np.argpartition(m_spec2vec_similarities, -top_n, axis=0)[-top_n:, :]
+    else:
+        selection_spec2vec = np.empty((0, len(documents_query)), dtype="int")
 
     # 2. Search for parent mass based matches ---------------------------------
-    mass_matching = ParentmassMatchParallel(mass_tolerance)
-    m_mass_matches = mass_matching([documents_library[i]._obj for i in library_ids],
-                                   [x._obj for x in documents_query])
+    if "parentmass" in presearch_based_on:
+        mass_matching = ParentmassMatchParallel(mass_tolerance)
+        m_mass_matches = mass_matching([documents_library[i]._obj for i in library_ids],
+                                       [x._obj for x in documents_query])
+    else:
+        m_mass_matches = np.empty((0, len(documents_query)), dtype="int")
 
     # 3. Combine found matches ------------------------------------------------
     for i in range(len(documents_query)):
@@ -78,28 +88,40 @@ def library_matching(documents_query: List[SpectrumDocument],
         mass_match_ids = np.where(m_mass_matches[:, i] == 1)[0]
 
         all_match_ids = np.unique(np.concatenate((s2v_top_ids, mass_match_ids)))
+        
+        if len(all_match_ids) > 0:
+            # Get cosine score for found matches
+            cosine_similarity = CosineGreedyNumba(tolerance=cosine_tol)
+            cosine_scores = []
+            for match_id in library_ids[all_match_ids]:
+                cosine_scores.append(cosine_similarity(documents_library[match_id]._obj,
+                                                       documents_query[i]._obj))
 
-        # Get cosine score for found matches
-        cosine_similarity = CosineGreedyNumba(tolerance=cosine_tol)
-        cosine_scores = []
-        for match_id in library_ids[all_match_ids]:
-            cosine_scores.append(cosine_similarity(documents_library[match_id]._obj,
-                                                   documents_query[i]._obj))
+            # Get modified cosine score for found matches
+            mod_cosine_similarity = ModifiedCosine(tolerance=cosine_tol)
+            mod_cosine_scores = []
+            for match_id in library_ids[all_match_ids]:
+                mod_cosine_scores.append(mod_cosine_similarity(documents_library[match_id]._obj,
+                                                               documents_query[i]._obj))
 
-        # Get modified cosine score for found matches
-        mod_cosine_similarity = ModifiedCosine(tolerance=cosine_tol)
-        mod_cosine_scores = []
-        for match_id in library_ids[all_match_ids]:
-            mod_cosine_scores.append(mod_cosine_similarity(documents_library[match_id]._obj,
-                                                           documents_query[i]._obj))
-
-        matches_df = pd.DataFrame({"mass_match": m_mass_matches[all_match_ids, i],
-                                  "s2v_score": m_spec2vec_similarities[all_match_ids, i],
-                                  "cosine_score": [x[0] for x in cosine_scores],
-                                  "cosine_matches": [x[1] for x in cosine_scores],
-                                  "mod_cosine_score": [x[0] for x in mod_cosine_scores],
-                                  "mod_cosine_matches": [x[1] for x in mod_cosine_scores]},
-                                  index=library_ids[all_match_ids])
-        found_matches.append(matches_df.fillna(0))
+            matches_df = pd.DataFrame({"mass_match": m_mass_matches[all_match_ids, i],
+                                      "cosine_score": [x[0] for x in cosine_scores],
+                                      "cosine_matches": [x[1] for x in cosine_scores],
+                                      "mod_cosine_score": [x[0] for x in mod_cosine_scores],
+                                      "mod_cosine_matches": [x[1] for x in mod_cosine_scores]},
+                                      index=library_ids[all_match_ids])
+            if m_spec2vec_similarities:
+                matches_df["s2v_score"] = m_spec2vec_similarities[all_match_ids, i]
+            elif "spec2vec"in include_scores:
+                spec2vec_similarity = Spec2Vec(model=model, intensity_weighting_power=intensity_weighting_power,
+                                               allowed_missing_percentage=allowed_missing_percentage)
+                spec2vec_scores = []
+                for match_id in library_ids[all_match_ids]:
+                    spec2vec_scores.append(spec2vec_similarity(documents_library[match_id]._obj,
+                                                               documents_query[i]._obj))
+                matches_df["s2v_score"] = spec2vec_scores
+            found_matches.append(matches_df.fillna(0))
+        else:
+            found_matches.append([])
 
     return found_matches
