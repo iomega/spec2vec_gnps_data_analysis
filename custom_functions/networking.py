@@ -798,11 +798,13 @@ def plot_clustering_performance(data_collection,
     size_xy: tuple
         Figure size. Default is (8,5).
     """
-
+    plt.style.use('ggplot')
     performance_data = []
     ymax = total_num_nodes
     legend_labels = [
-        'well clustered nodes', 'poorly clustered nodes', 'non-clustered nodes'
+        "average structural similarity > {:.2}".format(thres_well),
+        "average structural similarity < {:.2}".format(thres_poor),
+        'non-clustered nodes'
     ]
 
     for cluster_data in data_collection:
@@ -822,6 +824,7 @@ def plot_clustering_performance(data_collection,
 
     fig = plt.figure(figsize=size_xy)
     ax = plt.subplot(111)
+    ax.set_aspect(aspect=5)
     plt.plot(labels, [x[0] / ymax for x in performance_data],
              'o-',
              color='crimson',

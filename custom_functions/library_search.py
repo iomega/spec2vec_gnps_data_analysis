@@ -46,7 +46,7 @@ def library_matching(documents_query: List[SpectrumDocument],
 
     # Initializations
     found_matches = []
-    m_spec2vec_similarities = []
+    m_spec2vec_similarities = None
 
     def get_metadata(documents):
         metadata = []
@@ -64,7 +64,7 @@ def library_matching(documents_query: List[SpectrumDocument],
     # 1. Search for top-n Spec2Vec matches ------------------------------------
     if np.any(["spec2vec" in x for x in presearch_based_on]):
         top_n = int([x.split("top")[1] for x in presearch_based_on if "spec2vec" in x][0])
-        print("Pre-selection includes spec2vec top {top_n}.")
+        print("Pre-selection includes spec2vec top {}.".format(top_n))
         spec2vec = Spec2VecParallel(model=model, intensity_weighting_power=intensity_weighting_power,
                                     allowed_missing_percentage=allowed_missing_percentage)
         m_spec2vec_similarities = spec2vec([documents_library[i] for i in library_ids], documents_query)
@@ -110,7 +110,7 @@ def library_matching(documents_query: List[SpectrumDocument],
                                       "mod_cosine_score": [x[0] for x in mod_cosine_scores],
                                       "mod_cosine_matches": [x[1] for x in mod_cosine_scores]},
                                       index=library_ids[all_match_ids])
-            if m_spec2vec_similarities:
+            if m_spec2vec_similarities is not None:
                 matches_df["s2v_score"] = m_spec2vec_similarities[all_match_ids, i]
             elif "spec2vec"in include_scores:
                 spec2vec_similarity = Spec2Vec(model=model, intensity_weighting_power=intensity_weighting_power,
