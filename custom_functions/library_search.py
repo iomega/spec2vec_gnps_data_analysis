@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from matchms.similarity import CosineGreedyNumba, ModifiedCosine
 from spec2vec import SpectrumDocument
+from spec2vec import Spec2Vec
 from spec2vec import Spec2VecParallel
 from future_matchms import ParentmassMatchParallel
 
@@ -46,6 +47,7 @@ def library_matching(documents_query: List[SpectrumDocument],
 
     # Initializations
     found_matches = []
+    m_mass_matches = None
     m_spec2vec_similarities = None
 
     def get_metadata(documents):
@@ -60,6 +62,9 @@ def library_matching(documents_query: List[SpectrumDocument],
         library_ids = np.asarray([i for i, x in enumerate(library_spectra_metadata) if x])
     else:
         library_ids = np.arange(len(documents_library))
+
+    msg = "Presearch must be done either by 'parentmass' and/or 'spec2vec-topX'"
+    assert "parentmass" in presearch_based_on or np.any(["spec2vec" in x for x in presearch_based_on]), msg
 
     # 1. Search for top-n Spec2Vec matches ------------------------------------
     if np.any(["spec2vec" in x for x in presearch_based_on]):
@@ -80,7 +85,7 @@ def library_matching(documents_query: List[SpectrumDocument],
         m_mass_matches = mass_matching([documents_library[i]._obj for i in library_ids],
                                        [x._obj for x in documents_query])
     else:
-        m_mass_matches = np.empty((0, len(documents_query)), dtype="int")
+        pass #m_mass_matches = np.empty((0, len(documents_query)), dtype="int")
 
     # 3. Combine found matches ------------------------------------------------
     for i in range(len(documents_query)):
@@ -90,26 +95,35 @@ def library_matching(documents_query: List[SpectrumDocument],
         all_match_ids = np.unique(np.concatenate((s2v_top_ids, mass_match_ids)))
         
         if len(all_match_ids) > 0:
-            # Get cosine score for found matches
-            cosine_similarity = CosineGreedyNumba(tolerance=cosine_tol)
-            cosine_scores = []
-            for match_id in library_ids[all_match_ids]:
-                cosine_scores.append(cosine_similarity(documents_library[match_id]._obj,
-                                                       documents_query[i]._obj))
+            if "modcosine"in include_scores:
+                # Get cosine score for found matches
+                cosine_similarity = CosineGreedyNumba(tolerance=cosine_tol)
+                cosine_scores = []
+                for match_id in library_ids[all_match_ids]:
+                    cosine_scores.append(cosine_similarity(documents_library[match_id]._obj,
+                                                           documents_query[i]._obj))
+            else:
+                cosine_scores = len(all_match_ids) * ["not calculated"]
 
-            # Get modified cosine score for found matches
-            mod_cosine_similarity = ModifiedCosine(tolerance=cosine_tol)
-            mod_cosine_scores = []
-            for match_id in library_ids[all_match_ids]:
-                mod_cosine_scores.append(mod_cosine_similarity(documents_library[match_id]._obj,
-                                                               documents_query[i]._obj))
+            if "cosine"in include_scores:
+                # Get modified cosine score for found matches
+                mod_cosine_similarity = ModifiedCosine(tolerance=cosine_tol)
+                mod_cosine_scores = []
+                for match_id in library_ids[all_match_ids]:
+                    mod_cosine_scores.append(mod_cosine_similarity(documents_library[match_id]._obj,
+                                                                   documents_query[i]._obj))
+            else:
+                mod_cosine_scores = len(all_match_ids) * ["not calculated"]
 
-            matches_df = pd.DataFrame({"mass_match": m_mass_matches[all_match_ids, i],
-                                      "cosine_score": [x[0] for x in cosine_scores],
+            matches_df = pd.DataFrame({"cosine_score": [x[0] for x in cosine_scores],
                                       "cosine_matches": [x[1] for x in cosine_scores],
                                       "mod_cosine_score": [x[0] for x in mod_cosine_scores],
                                       "mod_cosine_matches": [x[1] for x in mod_cosine_scores]},
                                       index=library_ids[all_match_ids])
+
+            if m_mass_matches is not None:
+                matches_df["mass_match"] = m_mass_matches[all_match_ids, i]
+
             if m_spec2vec_similarities is not None:
                 matches_df["s2v_score"] = m_spec2vec_similarities[all_match_ids, i]
             elif "spec2vec"in include_scores:
