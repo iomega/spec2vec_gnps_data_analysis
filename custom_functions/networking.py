@@ -720,19 +720,19 @@ def plots_cluster_evaluations(cluster_data_collection,
         mean_node_sim = []
         for i in range(len(bins) - 1):
             num_elements.append(
-                np.sum(cluster_data[(cluster_data['num_nodes'] < bins[i + 1])
+                np.sum(cluster_data[(cluster_data['num_nodes'] <= bins[i + 1])
                                     & (cluster_data['num_nodes'] > bins[i])]
                        ['num_nodes'].values))
 
             if 'ref_sim_mean_edges' in cluster_data.columns:
                 mean_edge_sim.append(
                     np.mean(
-                        cluster_data[(cluster_data['num_nodes'] < bins[i + 1])
+                        cluster_data[(cluster_data['num_nodes'] <= bins[i + 1])
                                      & (cluster_data['num_nodes'] > bins[i])]
                         ['ref_sim_mean_edges'].values))
 
             mean_node_sim.append(
-                np.mean(cluster_data[(cluster_data['num_nodes'] < bins[i + 1])
+                np.mean(cluster_data[(cluster_data['num_nodes'] <= bins[i + 1])
                                      & (cluster_data['num_nodes'] > bins[i])]
                         ['ref_sim_mean_nodes'].values))
 
@@ -768,9 +768,8 @@ def plots_cluster_evaluations(cluster_data_collection,
 
 def plot_clustering_performance(data_collection,
                                 labels,
-                                total_num_nodes,
-                                thres_well=0.6,
-                                thres_poor=0.4,
+                                thres_well=0.5,
+                                thres_poor=0.5,
                                 title=None,
                                 filename=None,
                                 size_xy=(8, 5)):
@@ -785,12 +784,10 @@ def plot_clustering_performance(data_collection,
         List of DataFrames as created by evaluate_clusters().
     labels: list
         List of labels for the different conditions found in data_collection.
-    total_num_nodes: int
-        Give the total number of nodes present in the network.
     thres_well: float
-        Threshold above which clusters will be classified as "well clustered". Default = 0.6.
+        Threshold above which clusters will be classified as "well clustered". Default = 0.5.
     thres_poor: float
-        Threshold below which clusters will be classified as "poorly clustered". Default = 0.4.
+        Threshold below which clusters will be classified as "poorly clustered". Default = 0.5.
     title: str
         Title for plot. Default = None
     filename: str
@@ -800,9 +797,9 @@ def plot_clustering_performance(data_collection,
     """
     plt.style.use('ggplot')
     performance_data = []
-    ymax = total_num_nodes
+    ymax = np.sum(data_collection[0]['num_nodes'].values) # total_num_nodes
     legend_labels = [
-        "average structural similarity > {:.2}".format(thres_well),
+        "average structural similarity >= {:.2}".format(thres_well),
         "average structural similarity < {:.2}".format(thres_poor),
         'non-clustered nodes'
     ]
@@ -810,7 +807,7 @@ def plot_clustering_performance(data_collection,
     for cluster_data in data_collection:
         nodes_clustered_well = np.sum(
             cluster_data[(cluster_data['num_nodes'] > 1)
-                         & (cluster_data['ref_sim_mean_nodes'] > thres_well)]
+                         & (cluster_data['ref_sim_mean_nodes'] >= thres_well)]
             ['num_nodes'].values)
         nodes_clustered_poor = np.sum(
             cluster_data[(cluster_data['num_nodes'] > 1)
