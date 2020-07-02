@@ -84,13 +84,14 @@ def library_matching(documents_query: List[SpectrumDocument],
         mass_matching = ParentmassMatchParallel(mass_tolerance)
         m_mass_matches = mass_matching([documents_library[i]._obj for i in library_ids],
                                        [x._obj for x in documents_query])
+        selection_massmatch = np.where(m_mass_matches[:, i] == 1)[0]
     else:
-        pass #m_mass_matches = np.empty((0, len(documents_query)), dtype="int")
+        selection_massmatch = np.empty((0, len(documents_query)), dtype="int")
 
     # 3. Combine found matches ------------------------------------------------
     for i in range(len(documents_query)):
         s2v_top_ids = selection_spec2vec[:, i]
-        mass_match_ids = np.where(m_mass_matches[:, i] == 1)[0]
+        mass_match_ids = selection_massmatch[:, i]
 
         all_match_ids = np.unique(np.concatenate((s2v_top_ids, mass_match_ids)))
         
