@@ -1,6 +1,6 @@
 """Plotting functions for spec2vec"""
 import numpy as np
-from matchms.similarity.collect_peak_pairs import collect_peak_pairs
+from matchms.similarity.spectrum_similarity_functions import collect_peak_pairs
 from matplotlib import pyplot as plt
 from scipy import spatial
 from rdkit import Chem
