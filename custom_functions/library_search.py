@@ -8,6 +8,16 @@ from spec2vec import Spec2VecParallel
 from future_matchms import ParentmassMatchParallel
 
 
+from typing import List
+import numpy as np
+import pandas as pd
+from matchms.similarity import CosineGreedy, ModifiedCosine
+from spec2vec import SpectrumDocument
+from spec2vec import Spec2Vec
+from spec2vec import Spec2VecParallel
+from future_matchms import ParentmassMatchParallel
+
+
 def library_matching(documents_query: List[SpectrumDocument],
                      documents_library: List[SpectrumDocument],
                      model,
@@ -73,7 +83,7 @@ def library_matching(documents_query: List[SpectrumDocument],
         spec2vec = Spec2VecParallel(model=model, intensity_weighting_power=intensity_weighting_power,
                                     allowed_missing_percentage=allowed_missing_percentage)
         m_spec2vec_similarities = spec2vec([documents_library[i] for i in library_ids], documents_query)
-    
+
         # Select top_n similarity values:
         selection_spec2vec = np.argpartition(m_spec2vec_similarities, -top_n, axis=0)[-top_n:, :]
     else:
@@ -96,7 +106,7 @@ def library_matching(documents_query: List[SpectrumDocument],
         mass_match_ids = selection_massmatch[i]
 
         all_match_ids = np.unique(np.concatenate((s2v_top_ids, mass_match_ids)))
-        
+
         if len(all_match_ids) > 0:
             if "modcosine"in include_scores:
                 # Get cosine score for found matches
