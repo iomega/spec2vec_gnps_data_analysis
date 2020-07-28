@@ -1,7 +1,7 @@
 from typing import List
 import numpy as np
 import pandas as pd
-from matchms.similarity import CosineGreedyNumba, ModifiedCosine
+from matchms.similarity import CosineGreedy, ModifiedCosine
 from spec2vec import SpectrumDocument
 from spec2vec import Spec2Vec
 from spec2vec import Spec2VecParallel
@@ -84,21 +84,23 @@ def library_matching(documents_query: List[SpectrumDocument],
         mass_matching = ParentmassMatchParallel(mass_tolerance)
         m_mass_matches = mass_matching([documents_library[i]._obj for i in library_ids],
                                        [x._obj for x in documents_query])
-        selection_massmatch = np.where(m_mass_matches[:, i] == 1)[0]
+        selection_massmatch = []
+        for i in range(len(documents_query)):
+            selection_massmatch.append(np.where(m_mass_matches[:, i] == 1)[0])
     else:
-        selection_massmatch = np.empty((0, len(documents_query)), dtype="int")
+        selection_massmatch = np.empty((len(documents_query), 0), dtype="int")
 
     # 3. Combine found matches ------------------------------------------------
     for i in range(len(documents_query)):
         s2v_top_ids = selection_spec2vec[:, i]
-        mass_match_ids = selection_massmatch[:, i]
+        mass_match_ids = selection_massmatch[i]
 
         all_match_ids = np.unique(np.concatenate((s2v_top_ids, mass_match_ids)))
         
         if len(all_match_ids) > 0:
             if "modcosine"in include_scores:
                 # Get cosine score for found matches
-                cosine_similarity = CosineGreedyNumba(tolerance=cosine_tol)
+                cosine_similarity = CosineGreedy(tolerance=cosine_tol)
                 cosine_scores = []
                 for match_id in library_ids[all_match_ids]:
                     cosine_scores.append(cosine_similarity(documents_library[match_id]._obj,
@@ -132,8 +134,8 @@ def library_matching(documents_query: List[SpectrumDocument],
                                                allowed_missing_percentage=allowed_missing_percentage)
                 spec2vec_scores = []
                 for match_id in library_ids[all_match_ids]:
-                    spec2vec_scores.append(spec2vec_similarity(documents_library[match_id]._obj,
-                                                               documents_query[i]._obj))
+                    spec2vec_scores.append(spec2vec_similarity(documents_library[match_id],
+                                                               documents_query[i]))
                 matches_df["s2v_score"] = spec2vec_scores
             found_matches.append(matches_df.fillna(0))
         else:
