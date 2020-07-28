@@ -8,16 +8,6 @@ from spec2vec import Spec2VecParallel
 from future_matchms import ParentmassMatchParallel
 
 
-from typing import List
-import numpy as np
-import pandas as pd
-from matchms.similarity import CosineGreedy, ModifiedCosine
-from spec2vec import SpectrumDocument
-from spec2vec import Spec2Vec
-from spec2vec import Spec2VecParallel
-from future_matchms import ParentmassMatchParallel
-
-
 def library_matching(documents_query: List[SpectrumDocument],
                      documents_library: List[SpectrumDocument],
                      model,
