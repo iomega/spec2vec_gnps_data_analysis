@@ -838,6 +838,7 @@ def plot_clustering_performance(data_collection,
     plt.title(title)
     plt.ylabel("Fraction of total nodes")
     plt.xlabel("networking conditions")
+    plt.ylim(-0.03, 1)
     plt.legend()
 
     # Place legend
