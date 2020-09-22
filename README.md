@@ -2,8 +2,9 @@
 Analysis and benchmarking of mass spectra similarity measures using gnps data set.
 
 ## Create environment
+Current spec2vec works with Python 3.7 or 3.8, it might also work with earlier versions but we haven't tested.
 ```
-conda create --name spec2vec_analysis python=3.7
+conda create --name spec2vec_analysis python=3.7  # or 3.8 if you prefer
 conda activate spec2vec_analysis
 conda install --channel nlesc --channel bioconda --channel conda-forge spec2vec
 pip install jupyter
