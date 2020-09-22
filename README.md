@@ -5,7 +5,6 @@ Analysis and benchmarking of mass spectra similarity measures using gnps data se
 ```
 conda create --name spec2vec_analysis python=3.7
 conda activate spec2vec_analysis
-conda install --channel nlesc --channel bioconda --channel conda-forge matchms
 conda install --channel nlesc --channel bioconda --channel conda-forge spec2vec
 pip install jupyter
 ```
