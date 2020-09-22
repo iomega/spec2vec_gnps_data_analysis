@@ -7,8 +7,10 @@ def all_vs_all_similarity_matrix(spectrums, similarity_function,
 
     Args:
     ----
-    pectrums, similarity_function,
-                                 filename=None, safety_points=None
+    spectrums
+    similarity_function
+    filename=None
+    safety_points=None
     """
 
     if safety_points is not None:
@@ -22,7 +24,7 @@ def all_vs_all_similarity_matrix(spectrums, similarity_function,
     count = 0
     for i in range(len(spectrums)):
         for j in range(i, len(spectrums)):
-            score, matches = similarity_function(spectrums[i], spectrums[j])
+            score, matches = similarity_function.pair(spectrums[i], spectrums[j])
             similarities[i, j] = score
             num_matches[i, j] = matches
             count += 1
