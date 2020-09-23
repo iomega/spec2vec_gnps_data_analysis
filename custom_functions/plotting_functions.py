@@ -116,17 +116,17 @@ def plot_spectra_comparison(spectrum1_in, spectrum2_in,
     spectrum1 = apply_filters(spectrum1_in)
     spectrum2 = apply_filters(spectrum2_in)
 
-    plt.style.use('ggplot')
+    plt.style.use("seaborn-white")#('ggplot')
     plot_colors = ['darkcyan', 'purple']
 
     # Definitions for the axes
-    left, width = 0.1, 0.65
-    bottom, height = 0.1, 0.65
-    spacing = 0.005
+    left, width = 0.1, 0.6
+    bottom, height = 0.1, 0.6
+    spacing = 0.01
 
     rect_wordsim = [left, bottom, width, height]
     rect_specx = [left, bottom + height + spacing, width, 0.2]
-    rect_specy = [left + width, bottom, 0.2, height]
+    rect_specy = [left + width + spacing, bottom, 0.25, height]
 
     document1 = SpectrumDocument(spectrum1, n_decimals=num_decimals)
     document2 = SpectrumDocument(spectrum2, n_decimals=num_decimals)
@@ -142,6 +142,11 @@ def plot_spectra_comparison(spectrum1_in, spectrum2_in,
     min_peaks2 = np.min(peaks2[:, 0])
     max_peaks1 = np.max(peaks1[:, 0])
     max_peaks2 = np.max(peaks2[:, 0])
+    possible_grid_points = np.arange(0, 2000, 50)
+    grid_points1 = possible_grid_points[(possible_grid_points > min_peaks1 - padding) \
+                                        & (possible_grid_points < max_peaks1 + padding)]
+    grid_points2 = possible_grid_points[(possible_grid_points > min_peaks2 - padding) \
+                                        & (possible_grid_points < max_peaks2 + padding)]
 
     word_vectors1 = model.wv[[document1.words[x] for x in select1]]
     word_vectors2 = model.wv[[document2.words[x] for x in select2]]
@@ -191,6 +196,7 @@ def plot_spectra_comparison(spectrum1_in, spectrum2_in,
                                          data_y[idx],
                                          s=100 * circle_size *
                                          (0.01 + data_peak_product[idx]**2),
+                                         marker="o",
                                          c=data_z[idx],
                                          cmap=cm,
                                          alpha=0.6)
@@ -199,6 +205,7 @@ def plot_spectra_comparison(spectrum1_in, spectrum2_in,
                                          data_y[idx],
                                          s=100 * circle_size *
                                          (0.01 + data_z[idx]**2),
+                                         marker="o",
                                          c=data_z[idx],
                                          cmap=cm,
                                          alpha=0.6)
@@ -227,6 +234,9 @@ def plot_spectra_comparison(spectrum1_in, spectrum2_in,
     ax_wordsim.set_xlabel('spectrum 1 - fragment mz', fontsize=16)
     ax_wordsim.set_ylabel('spectrum 2 - fragment mz', fontsize=16)
     ax_wordsim.tick_params(labelsize=13)
+    ax_wordsim.set_xticks(grid_points1)
+    ax_wordsim.set_yticks(grid_points2)
+    ax_wordsim.grid(True)
 
     # Plot spectra 1
     ax_specx.vlines(peaks1[:, 0], [0], peaks1[:, 1], color=plot_colors[0])
@@ -234,8 +244,12 @@ def plot_spectra_comparison(spectrum1_in, spectrum2_in,
     ax_specx.plot([peaks1[:, 0].max(), peaks1[:, 0].min()], [0, 0],
                   '--')  # Middle bar
     ax_specx.set_xlim(min_peaks1 - padding, max_peaks1 + padding)
+    ax_specx.set_yticks([0,0.25,0.5,0.75,1])
+    ax_specx.set_xticks(grid_points1)
     ax_specx.set_ylabel('peak intensity (relative)', fontsize=16)
     ax_specx.tick_params(labelsize=13)
+
+    ax_specx.grid(True)
 
     # Plot spectra 2
     ax_specy.hlines(peaks2[:, 0], [0], peaks2[:, 1], color=plot_colors[1])
@@ -243,8 +257,12 @@ def plot_spectra_comparison(spectrum1_in, spectrum2_in,
     ax_specy.plot([0, 0], [peaks2[:, 0].min(), peaks2[:, 0].max()],
                   '--')  # Middle bar
     ax_specy.set_ylim(min_peaks2 - padding, max_peaks2 + padding)
+    ax_specy.set_xticks([0,0.25,0.5,0.75,1])
+    ax_specy.set_yticks(grid_points2)
     ax_specy.set_xlabel('peak intensity (relative)', fontsize=16)
     ax_specy.tick_params(labelsize=13)
+
+    ax_specy.grid(True)
 
     fig.colorbar(wordsimplot, ax=ax_specy)
     if filename is not None:
