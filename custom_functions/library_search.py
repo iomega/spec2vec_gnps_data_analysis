@@ -1,6 +1,7 @@
 from typing import List
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from gensim.models.basemodel import BaseTopicModel
 from matchms.similarity import CosineGreedy, ModifiedCosine, PrecursorMzMatch
 from spec2vec import SpectrumDocument
@@ -102,7 +103,7 @@ def library_matching(documents_query: List[SpectrumDocument],
     if "modcosine" in include_scores:
         print("Calculate modified cosine score for selected candidates.")
 
-    for i in range(len(documents_query)):
+    for i in tqdm(range(len(documents_query))):
         s2v_top_ids = selection_spec2vec[:, i]
         mass_match_ids = selection_massmatch[i]
 
