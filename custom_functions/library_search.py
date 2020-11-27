@@ -2,7 +2,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 from gensim.models.basemodel import BaseTopicModel
-from matchms.similarity import CosineGreedy, ModifiedCosine, PrecursormzMatch
+from matchms.similarity import CosineGreedy, ModifiedCosine, PrecursorMzMatch
 from spec2vec import SpectrumDocument
 from spec2vec import Spec2Vec
 
@@ -73,7 +73,8 @@ def library_matching(documents_query: List[SpectrumDocument],
         top_n = int([x.split("top")[1] for x in presearch_based_on if "spec2vec" in x][0])
         print(f"Pre-selection includes spec2vec top {top_n}.")
         spec2vec = Spec2Vec(model=model, intensity_weighting_power=intensity_weighting_power,
-                            allowed_missing_percentage=allowed_missing_percentage)
+                            allowed_missing_percentage=allowed_missing_percentage,
+                            progress_bar=True)
         m_spec2vec_similarities = spec2vec.matrix([documents_library[i] for i in library_ids],
                                                   documents_query)
 
@@ -85,7 +86,7 @@ def library_matching(documents_query: List[SpectrumDocument],
     # 2. Search for precursor_mz based matches ---------------------------------
     if "precursor_mz" in presearch_based_on:
         print(f"Pre-selection includes mass matches within {mass_tolerance} {mass_tolerance_type}.")
-        mass_matching = PrecursormzMatch(tolerance=mass_tolerance,
+        mass_matching = PrecursorMzMatch(tolerance=mass_tolerance,
                                          tolerance_type=mass_tolerance_type)
         m_mass_matches = mass_matching.matrix([documents_library[i]._obj for i in library_ids],
                                               [x._obj for x in documents_query])
