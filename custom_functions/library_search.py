@@ -115,7 +115,7 @@ def library_matching(documents_query: List[SpectrumDocument],
                 score = modcos.pair(reference, query)
                 m_modcos_similarities[i_ref][i_query] = score[0]
                 m_modcos_matches[i_ref][i_query] = score[1]
-        print(m_modcos_similarities.shape, m_modcos_matches.shape)
+
         # Select top_n similarity values:
         m_modcos_selected = m_modcos_similarities.copy()
         m_modcos_selected[m_modcos_matches < min_matches] = 0
