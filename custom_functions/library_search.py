@@ -37,7 +37,7 @@ def library_matching(documents_query: List[SpectrumDocument],
         Pretrained word2Vec model.
     presearch_based_on:
         List with strings to specify which measures to use for the presearch.
-        This can include 'precursor_mz', 'spec2vec-topX', 
+        This can include 'precursor_mz', 'spec2vec-topX',
     ignore_non_annotated: bool, optional
         If True, only annotated spectra will be considered for matching.
         Default = True.
@@ -105,12 +105,12 @@ def library_matching(documents_query: List[SpectrumDocument],
         top_n = int([x.split("top")[1] for x in presearch_based_on if "modcos" in x][0])
         print(f"Pre-selection includes modified cosine top {top_n}.")
         modcos = ModifiedCosine(tolerance=cosine_tol)
-        
+
         n_rows = len(library_ids)
         n_cols = len(documents_query)
         m_modcos_similarities = np.zeros([n_rows, n_cols], dtype=np.float64)
         m_modcos_matches = np.zeros([n_rows, n_cols], dtype=np.float64)
-        for i_ref, reference in enumerate([documents_library[i]._obj for i in library_ids]):
+        for i_ref, reference in enumerate(tqdm([documents_library[i]._obj for i in library_ids])):
             for i_query, query in enumerate([x._obj for x in documents_query]):
                 score = modcos.pair(reference, query)
                 m_modcos_similarities[i_ref][i_query] = score[0]
@@ -146,7 +146,7 @@ def library_matching(documents_query: List[SpectrumDocument],
                                                                 documents_query[i]._obj))
             else:
                 cosine_scores = len(all_match_ids) * ["not calculated"]
-            
+
             if m_modcos_similarities is not None:
                 mod_cosine_scores0 = [x for x in m_modcos_similarities[all_match_ids, i]]
                 mod_cosine_scores1 = [x for x in m_modcos_matches[all_match_ids, i]]
