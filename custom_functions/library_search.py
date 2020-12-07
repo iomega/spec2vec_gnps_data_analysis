@@ -11,12 +11,13 @@ from spec2vec import Spec2Vec
 def library_matching(documents_query: List[SpectrumDocument],
                      documents_library: List[SpectrumDocument],
                      model: BaseTopicModel,
-                     presearch_based_on=["precursor_mz", "spec2vec-top10"],
+                     presearch_based_on: List[str] = ["precursor_mz", "spec2vec-top10"],
                      ignore_non_annotated: bool = True,
                      include_scores=["spec2vec", "cosine", "modcosine"],
                      intensity_weighting_power: float = 0.5,
                      allowed_missing_percentage: float = 0,
                      cosine_tol: float = 0.005,
+                     min_matches: int = 6,
                      mass_tolerance: float = 2.0,
                      mass_tolerance_type: str = "ppm"):
     """Selecting potential spectra matches with spectra library.
@@ -34,9 +35,9 @@ def library_matching(documents_query: List[SpectrumDocument],
         List containing all library spectrum documents.
     model:
         Pretrained word2Vec model.
-    top_n: int, optional
-        Number of entries witht the top_n highest Spec2Vec scores to keep as
-        found matches. Default = 10.
+    presearch_based_on:
+        List with strings to specify which measures to use for the presearch.
+        This can include 'precursor_mz', 'spec2vec-topX', 
     ignore_non_annotated: bool, optional
         If True, only annotated spectra will be considered for matching.
         Default = True.
@@ -52,6 +53,7 @@ def library_matching(documents_query: List[SpectrumDocument],
     found_matches = []
     m_mass_matches = None
     m_spec2vec_similarities = None
+    m_modcos_ids_similarities = None
 
     def get_metadata(documents):
         metadata = []
@@ -66,8 +68,9 @@ def library_matching(documents_query: List[SpectrumDocument],
     else:
         library_ids = np.arange(len(documents_library))
 
-    msg = "Presearch must be done either by 'precursor_mz' and/or 'spec2vec-topX'"
-    assert "precursor_mz" in presearch_based_on or np.any(["spec2vec" in x for x in presearch_based_on]), msg
+    allowed_presearch_type = ["precursor_mz", "spec2vec-top", "modcos-top"]
+    msg = "Presearch must include one of: " + ", ".join(allowed_presearch_type)
+    assert np.any([(x in y) for x in allowed_presearch_type for y in presearch_based_on]), msg
 
     # 1. Search for top-n Spec2Vec matches ------------------------------------
     if np.any(["spec2vec" in x for x in presearch_based_on]):
@@ -97,7 +100,30 @@ def library_matching(documents_query: List[SpectrumDocument],
     else:
         selection_massmatch = np.empty((len(documents_query), 0), dtype="int")
 
-    # 3. Combine found matches ------------------------------------------------
+    # 3. Search for top-n modified cosine matches ------------------------------------
+    if np.any(["modcos" in x for x in presearch_based_on]):
+        top_n = int([x.split("top")[1] for x in presearch_based_on if "modcos" in x][0])
+        print(f"Pre-selection includes modified cosine top {top_n}.")
+        modcos = ModifiedCosine(tolerance=cosine_tol)
+        
+        n_rows = len(library_ids)
+        n_cols = len(documents_query)
+        m_modcos_similarities = np.zeros([n_rows, n_cols], dtype=np.float64)
+        m_modcos_matches = np.zeros([n_rows, n_cols], dtype=np.float64)
+        for i_ref, reference in enumerate([documents_library[i]._obj for i in library_ids]):
+            for i_query, query in enumerate([x._obj for x in documents_query]):
+                score = modcos.pair(reference, query)
+                m_modcos_similarities[i_ref][i_query] = score[0]
+                m_modcos_matches[i_ref][i_query] = score[1]
+        print(m_modcos_similarities.shape, m_modcos_matches.shape)
+        # Select top_n similarity values:
+        m_modcos_selected = m_modcos_similarities.copy()
+        m_modcos_selected[m_modcos_matches < min_matches] = 0
+        selection_modcos = np.argpartition(m_modcos_selected, -top_n, axis=0)[-top_n:, :]
+    else:
+        selection_modcos = np.empty((0, len(documents_query)), dtype="int")
+
+    # 4. Combine found matches ------------------------------------------------
     if "cosine" in include_scores:
         print("Calculate cosine score for selected candidates.")
     if "modcosine" in include_scores:
@@ -106,8 +132,9 @@ def library_matching(documents_query: List[SpectrumDocument],
     for i in tqdm(range(len(documents_query))):
         s2v_top_ids = selection_spec2vec[:, i]
         mass_match_ids = selection_massmatch[i]
+        modcos_ids = selection_modcos[:, i]
 
-        all_match_ids = np.unique(np.concatenate((s2v_top_ids, mass_match_ids)))
+        all_match_ids = np.unique(np.concatenate((s2v_top_ids, mass_match_ids, modcos_ids)))
 
         if len(all_match_ids) > 0:
             if "cosine" in include_scores:
@@ -119,8 +146,12 @@ def library_matching(documents_query: List[SpectrumDocument],
                                                                 documents_query[i]._obj))
             else:
                 cosine_scores = len(all_match_ids) * ["not calculated"]
-
-            if "modcosine" in include_scores:
+            
+            if m_modcos_similarities is not None:
+                mod_cosine_scores0 = [x for x in m_modcos_similarities[all_match_ids, i]]
+                mod_cosine_scores1 = [x for x in m_modcos_matches[all_match_ids, i]]
+                mod_cosine_scores = list(zip(mod_cosine_scores0, mod_cosine_scores1))
+            elif "modcosine" in include_scores:
                 # Get modified cosine score for found matches
                 mod_cosine_similarity = ModifiedCosine(tolerance=cosine_tol)
                 mod_cosine_scores = []
