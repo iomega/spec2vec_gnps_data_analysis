@@ -7,7 +7,7 @@ from setuptools import find_packages
 here = os.path.abspath(os.path.dirname(__file__))
 
 version = {}
-with open(os.path.join(here, "spec2vec_gnps_data_analysis", "__version__.py")) as f:
+with open(os.path.join(here, "__version__.py")) as f:
     exec(f.read(), version)
 
 with open("README.md") as readme_file:
