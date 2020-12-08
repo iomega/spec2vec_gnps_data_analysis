@@ -53,7 +53,7 @@ def library_matching(documents_query: List[SpectrumDocument],
     found_matches = []
     m_mass_matches = None
     m_spec2vec_similarities = None
-    m_modcos_ids_similarities = None
+    m_modcos_similarities = None
 
     def get_metadata(documents):
         metadata = []
