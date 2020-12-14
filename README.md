@@ -1,4 +1,5 @@
-![GitHub](https://img.shields.io/github/license/iomega/spec2vec_gnps_data_analysis)
+![GitHub](https://img.shields.io/github/license/iomega/spec2vec_gnps_data_analysis) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/iomega/spec2vec_gnps_data_analysis/CI%20Build)
+
 # spec2vec_gnps_data_analysis
 Analysis and benchmarking of mass spectra similarity measures using gnps data set.
 
