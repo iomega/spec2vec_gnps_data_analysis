@@ -1,6 +1,7 @@
 import os
 import sys
 import numpy as np
+import pytest
 from matchms import Spectrum
 from spec2vec import Spec2Vec
 from spec2vec import SpectrumDocument
