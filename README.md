@@ -1,4 +1,5 @@
-![GitHub](https://img.shields.io/github/license/iomega/spec2vec_gnps_data_analysis)
+![GitHub](https://img.shields.io/github/license/iomega/spec2vec_gnps_data_analysis) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/iomega/spec2vec_gnps_data_analysis/CI%20Build)
+
 # spec2vec_gnps_data_analysis
 Analysis and benchmarking of mass spectra similarity measures using gnps data set.
 
@@ -34,4 +35,4 @@ jupyter notebook
 ## Download pre-trained models
 Pretrained Word2Vec models to be used with Spec2Vec can be found on zenodo.
 - Model trained on __UniqueInchikey__ subset (12,797 spectra): https://zenodo.org/record/3978054
-- Model trained on __AllPositive__ set of all positive ionization mode spectra (after filtering): https://zenodo.org/record/3978070
+- Model trained on __AllPositive__ set of all positive ionization mode spectra (after filtering): https://zenodo.org/record/4173596
