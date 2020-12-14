@@ -1,5 +1,6 @@
 import os
 import sys
+import numpy as np
 from matchms import Spectrum
 from spec2vec import Spec2Vec
 from spec2vec import SpectrumDocument
@@ -10,17 +11,17 @@ from custom_functions.library_search import library_matching
 
 
 def test_library_matching():
-    spectrum_1 = Spectrum(mz=numpy.array([100, 150, 200.]),
-                          intensities=numpy.array([0.7, 0.2, 0.1]),
+    spectrum_1 = Spectrum(mz=np.array([100, 150, 200.]),
+                          intensities=np.array([0.7, 0.2, 0.1]),
                           metadata={'precursor_mz': 500.5})
-    spectrum_2 = Spectrum(mz=numpy.array([100, 140, 190.]),
-                          intensities=numpy.array([0.4, 0.2, 0.1]),
+    spectrum_2 = Spectrum(mz=np.array([100, 140, 190.]),
+                          intensities=np.array([0.4, 0.2, 0.1]),
                           metadata={'precursor_mz': 500.11})
-    spectrum_3 = Spectrum(mz=numpy.array([100, 140, 190.]),
-                          intensities=numpy.array([0.3, 0.5, 0.2]),
+    spectrum_3 = Spectrum(mz=np.array([100, 140, 190.]),
+                          intensities=np.array([0.3, 0.5, 0.2]),
                           metadata={'precursor_mz': 501.1})
-    spectrum_4 = Spectrum(mz=numpy.array([97.5, 137.5, 200.]),
-                          intensities=numpy.array([0.8, 0.5, 0.4]),
+    spectrum_4 = Spectrum(mz=np.array([97.5, 137.5, 200.]),
+                          intensities=np.array([0.8, 0.5, 0.4]),
                           metadata={'precursor_mz': 500.1})
     documents_library = [SpectrumDocument(s) for s in [spectrum_1, spectrum_2, spectrum_3]]
     documents_query = [SpectrumDocument(spectrum_4)]
