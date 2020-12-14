@@ -6,7 +6,7 @@ from spec2vec import SpectrumDocument
 #path_root = os.path.dirname(os.path.__file__)
 path_root = os.path.dirname(os.getcwd())
 sys.path.insert(0, os.path.join(path_root, "custom_functions"))
-from spec2vec_gnps_analysis.library_search import library_matching
+from custom_functions.library_search import library_matching
 
 
 def test_library_matching():
