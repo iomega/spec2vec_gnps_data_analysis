@@ -35,4 +35,4 @@ jupyter notebook
 ## Download pre-trained models
 Pretrained Word2Vec models to be used with Spec2Vec can be found on zenodo.
 - Model trained on __UniqueInchikey__ subset (12,797 spectra): https://zenodo.org/record/3978054
-- Model trained on __AllPositive__ set of all positive ionization mode spectra (after filtering): https://zenodo.org/record/3978070
+- Model trained on __AllPositive__ set of all positive ionization mode spectra (after filtering): https://zenodo.org/record/4173596
