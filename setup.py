@@ -30,6 +30,7 @@ setup(
     install_requires=[
         "matchms>=0.6.2",
         "numpy",
+        "pandas",
         "spec2vec",
         "networkx",
         "gensim",
