@@ -1,4 +1,103 @@
+import re
 import pubchempy as pcp
+import numpy as np
+from matchms.utils import is_valid_inchikey
+
+
+def pubchem_metadata_lookup(spectrum_in, name_search_depth=10, formula_search=False,
+                            min_formula_length=6, formula_search_depth=25, verbose=1):
+    """
+
+    Parameters
+    ----------
+    spectrum_in
+        Matchms type spectrum as input.
+    name_search_depth: int
+        How many of the most relevant name matches to explore deeper. Default = 10.
+
+    """
+    if spectrum_in is None:
+        return None
+
+    spectrum = spectrum_in.clone()
+    if is_valid_inchikey(spectrum.get("inchikey")):
+        return spectrum
+
+    def _plausible_name(compound_name):
+        return (isinstance(compound_name, str) and len(compound_name) > 4)
+
+    compound_name = spectrum.get("compound_name")
+    if not _plausible_name(compound_name):
+        return spectrum
+
+    # Start pubchem search
+    inchi = spectrum.get("inchi")
+    parent_mass = spectrum.get("parent_mass")
+    formula = spectrum.get("formula")
+
+    # 1) Search for matching compound name
+    results_pubchem = pubchem_name_search(compound_name, name_search_depth=name_search_depth,
+                                          verbose=verbose)
+
+    if len(results_pubchem) > 0:
+
+        # 1a) Search for matching inchi
+        if likely_has_inchi(inchi):
+            inchi_pubchem, inchikey_pubchem, smiles_pubchem = find_pubchem_inchi_match(results_pubchem, inchi,
+                                                                                       verbose=verbose)
+        # 1b) Search for matching mass
+        if not likely_has_inchi(inchi) or inchikey_pubchem is None:
+            inchi_pubchem, inchikey_pubchem, smiles_pubchem = find_pubchem_mass_match(results_pubchem, parent_mass,
+                                                                                      verbose=verbose)
+
+        if inchikey_pubchem is not None and inchi_pubchem is not None:
+            if verbose >= 1:
+                print(f"Matching compound name: {compound_name}")
+            spectrum.set("inchikey", inchikey_pubchem)
+            spectrum.set("inchi", inchi_pubchem)
+            spectrum.set("smiles", smiles_pubchem)
+            return spectrum
+
+        elif verbose >= 2:
+            print(f"No matches found for compound name: {compound_name}")
+
+    # 2) Search for matching formula
+    if formula_search and formula and len(formula) >= min_formula_length:
+        results_pubchem = pubchem_formula_search(formula, formula_search_depth=formula_search_depth,
+                                                 verbose=verbose)
+
+        if len(results_pubchem) > 0:
+
+            # 2a) Search for matching inchi
+            if likely_has_inchi(inchi):
+                inchi_pubchem, inchikey_pubchem, smiles_pubchem = find_pubchem_inchi_match(results_pubchem, inchi)
+            # 2b) Search for matching mass
+            if inchikey_pubchem is None:
+                inchi_pubchem, inchikey_pubchem, smiles_pubchem = find_pubchem_mass_match(results_pubchem, parent_mass)
+
+            if inchikey_pubchem is not None and inchi_pubchem is not None:
+                if verbose >= 1:
+                    print(f"Matching formula: {formula}")
+                spectrum.set("inchikey", inchikey_pubchem)
+                spectrum.set("inchi", inchi_pubchem)
+                spectrum.set("smiles", smiles_pubchem)
+                return spectrum
+
+            elif verbose >= 2:
+                print(f"No matches found for formula: {formula}")
+
+    return spectrum
+
+
+def likely_has_inchi(inchi):
+    """Quick test to avoid excess in-depth testing"""
+    if inchi is None:
+        return False
+    inchi = inchi.strip('"')
+    regexp = r"(InChI=1|1)(S\/|\/)[0-9, A-Z, a-z,\.]{2,}\/(c|h)[0-9]"
+    if not re.search(regexp, inchi):
+        return False
+    return True
 
 
 def likely_inchi_match(inchi_1, inchi_2, min_agreement=3):
@@ -88,173 +187,129 @@ def likely_inchikey_match(inchikey_1, inchikey_2, min_agreement=1):
     return agreement == min_agreement
 
 
-def pubchem_lookup(spectrum_in):
-    
-    spectrum = spectrum_in.clone()
+def pubchem_name_search(compound_name: str, name_search_depth=10, verbose=1):
+    """Search pubmed for compound name"""
+    results_pubchem = pcp.get_compounds(compound_name,
+                                        'name',
+                                        listkey_count=name_search_depth)
+    if verbose >=2:
+        print("Found at least", len(results_pubchem),
+              "compounds of that name on pubchem.")
+    return results_pubchem
 
-    
+
+def pubchem_formula_search(compound_formula: str, formula_search_depth=25, verbose=1):
+    """Search pubmed for compound formula"""
+    sids_pubchem = pcp.get_sids(compound_formula,
+                                'formula',
+                                listkey_count=formula_search_depth)
+
+    results_pubchem = []
+    for sid in sids_pubchem:
+        result = pcp.Compound.from_cid(sid['CID'])
+        results_pubchem.append(result)
+
+    if verbose >=2:
+        print(f"Found at least {len(results_pubchem)} compounds of with formula: {compound_formula}.")
+    return results_pubchem
 
 
+def find_pubchem_inchi_match(results_pubchem,
+                             inchi,
+                             min_inchi_match=3,
+                             verbose=1):
+    """Searches pubmed matches for inchi match.
+    Then check if inchi can be matched to (defective) input inchi.
 
-def find_pubchem_match(compound_name,
-                       inchi,
-                       inchikey=None,
-                       mode='and',
-                       min_inchi_match=3,
-                       min_inchikey_match=1,
-                       name_search_depth=10,
-                       formula_search=False,
-                       formula_search_depth=25):
-    """Searches pubmed for compounds based on name.
-    Then check if inchi and/or inchikey can be matched to (defective) input inchi and/or inchikey.
-
-    In case no matches are found: For formula_search = True, the search will continue based on the
-    formula extracted from the inchi.
 
     Outputs found inchi and found inchikey (will be None if none is found).
 
     Parameters
     ----------
-    compound_name: str
-        Name of compound to search for on Pubchem.
+    results_pubchem: List[dict]
+        List of name search results from Pubchem.
     inchi: str
         Inchi (correct, or defective...). Set to None to ignore.
-    inchikey: str
-        Inchikey (correct, or defective...). Set to None to ignore.
-    mode: str
-        Determines the final matching criteria (can be se to 'and' or 'or').
-        For 'and' and given inchi AND inchikey, a match has to be a match with inchi AND inchikey.
-        For 'or' it will be sufficient to find a good enough match with either inchi OR inchikey.
     min_inchi_match: int
         Minimum number of first parts that MUST be a match between both input
         inchi to finally consider it a match. Default is min_inchi_match=3.
-    min_inchikey_match: int
-        Minimum parts of inchikey that must be equal to be considered a match.
-        Can be 1, 2, or 3.
-    name_search_depth: int
-        How many of the most relevant name matches to explore deeper. Default = 10.
-    formula_search: bool
-        If True an additional search using the chemical formula is done if the name
-        did not already give a good match. Makes the search considerable slower.
-    formula_search_depth: int
-        How many of the most relevant formula matches to explore deeper. Default = 25.
     """
-    if inchi is None:
-        match_inchi = True
-        mode = 'and'  # Do not allow 'or' in that case.
-    else:
-        match_inchi = False
-
-    if inchikey is None:
-        match_inchikey = True
-        mode = 'and'  # Do not allow 'or' in that case.
-    else:
-        match_inchikey = False
-
-    if mode == 'and':
-        operate = operator.and_
-    elif mode == 'or':
-        operate = operator.or_
-    else:
-        print("Wrong mode was given!")
 
     inchi_pubchem = None
     inchikey_pubchem = None
-
-    # Search pubmed for compound name:
-    results_pubchem = pcp.get_compounds(compound_name,
-                                        'name',
-                                        listkey_count=name_search_depth)
-    print("Found at least", len(results_pubchem),
-          "compounds of that name on pubchem.")
-
+    smiles_pubchem = None
 
     # Loop through first 'name_search_depth' results found on pubchem. Stop once first match is found.
     for result in results_pubchem:
         inchi_pubchem = '"' + result.inchi + '"'
         inchikey_pubchem = result.inchikey
+        smiles_pubchem = result.isomeric_smiles
+        if smiles_pubchem is None:
+            smiles_pubchem = result.canonical_smiles
 
-        if inchi is not None:
-            match_inchi = likely_inchi_match(
-                inchi,
-                inchi_pubchem,
-                min_agreement=min_inchi_match)
-        if inchikey is not None:
-            match_inchikey = likely_inchikey_match(
-                inchikey,
-                inchikey_pubchem,
-                min_agreement=min_inchikey_match)
+        match_inchi = likely_inchi_match(inchi, inchi_pubchem,
+                                         min_agreement=min_inchi_match)
 
-        if operate(
-                match_inchi, match_inchikey
-                ):  # Found match for inchi and/or inchikey (depends on mode = 'and'/'or')
-            print("--> FOUND MATCHING COMPOUND ON PUBCHEM.")
-            if inchi is not None:
-                print("Inchi ( input ): " + inchi)
-                print("Inchi (pubchem): " + inchi_pubchem + "\n")
-            if inchikey is not None:
-                print("Inchikey ( input ): " + inchikey)
-                print("Inchikey (pubchem): " + inchikey_pubchem + "\n")
+        if match_inchi:
+            if verbose >= 1:
+                print(f"Found matching compound for inchi: {inchi} (Pubchem: {inchi_pubchem}")
             break
 
-    if not operate(match_inchi, match_inchikey):
-        if inchi is not None and formula_search:
-            # Do additional search on Pubchem with the formula
-
-            # Get formula from inchi
-            inchi_parts = inchi.split('InChI=')[1].split('/')
-            if len(inchi_parts) >= min_inchi_match:
-                compound_formula = inchi_parts[1]
-
-                # Search formula on Pubchem
-                sids_pubchem = pcp.get_sids(compound_formula,
-                                            'formula',
-                                            listkey_count=formula_search_depth)
-                print("Found at least", len(sids_pubchem),
-                      "compounds with formula", compound_formula,
-                      "on pubchem.")
-
-                results_pubchem = []
-                for sid in sids_pubchem:
-                    result = pcp.Compound.from_cid(sid['CID'])
-                    results_pubchem.append(result)
-
-                for result in results_pubchem:
-                    inchi_pubchem = '"' + result.inchi + '"'
-                    inchikey_pubchem = result.inchikey
-
-                    if inchi is not None:
-                        match_inchi = likely_inchi_match(
-                            inchi,
-                            inchi_pubchem,
-                            min_agreement=min_inchi_match)
-                    if inchikey is not None:
-                        match_inchikey = likely_inchikey_match(
-                            inchikey,
-                            inchikey_pubchem,
-                            min_agreement=min_inchikey_match)
-                    # Found match for inchi and/or inchikey (depends on mode = 'and'/'or')
-                    if operate(match_inchi, match_inchikey):
-                        print("--> FOUND MATCHING COMPOUND ON PUBCHEM.")
-                        if inchi is not None:
-                            print("Inchi ( input ): " + inchi)
-                            print("Inchi (pubchem): " + inchi_pubchem + "\n")
-                        if inchikey is not None:
-                            print("Inchikey ( input ): " + inchikey)
-                            print("Inchikey (pubchem): " + inchikey_pubchem +
-                                  "\n")
-                        break
-
-    if not operate(match_inchi, match_inchikey):
+    if not match_inchi:
         inchi_pubchem = None
         inchikey_pubchem = None
+        smiles_pubchem = None
 
-        if inchi is not None and inchikey is not None:
-            print("No matches found for inchi", inchi, mode, " inchikey",
-                  inchikey, "\n")
-        elif inchikey is None:
+        if verbose >= 2:
             print("No matches found for inchi", inchi, "\n")
-        else:
-            print("No matches found for inchikey", inchikey, "\n")
 
-    return inchi_pubchem, inchikey_pubchem
+    return inchi_pubchem, inchikey_pubchem, smiles_pubchem
+
+
+def find_pubchem_mass_match(results_pubchem,
+                            parent_mass,
+                            mass_tolerance=2.0,
+                            verbose=1):
+    """Searches pubmed matches for inchi match.
+    Then check if inchi can be matched to (defective) input inchi.
+
+
+    Outputs found inchi and found inchikey (will be None if none is found).
+
+    Parameters
+    ----------
+    results_pubchem: List[dict]
+        List of name search results from Pubchem.
+    parent_mass: float
+        Spectrum"s guessed parent mass.
+    mass_tolerance: float
+        Acceptable mass difference between query compound and pubchem result.
+    """
+    inchi_pubchem = None
+    inchikey_pubchem = None
+    smiles_pubchem = None
+
+    for result in results_pubchem:
+        inchi_pubchem = '"' + result.inchi + '"'
+        inchikey_pubchem = result.inchikey
+        smiles_pubchem = result.isomeric_smiles
+        if smiles_pubchem is None:
+            smiles_pubchem = result.canonical_smiles
+
+        pubchem_mass = results_pubchem[0].exact_mass
+        match_mass = (np.abs(pubchem_mass - parent_mass) <= mass_tolerance)
+
+        if match_mass:
+            if verbose >= 1:
+                print(f"Matching molecular weight ({pubchem_mass:.1f} vs parent mass of {parent_mass:.1f})")
+            break
+
+    if not match_mass:
+        inchi_pubchem = None
+        inchikey_pubchem = None
+        smiles_pubchem = None
+
+        if verbose >= 2:
+            print(f"No matches found for mass {parent_mass} Da")
+
+    return inchi_pubchem, inchikey_pubchem, smiles_pubchem
