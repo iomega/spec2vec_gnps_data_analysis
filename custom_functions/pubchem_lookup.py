@@ -33,6 +33,8 @@ def pubchem_metadata_lookup(spectrum_in, name_search_depth=10, formula_search=Fa
     # Start pubchem search
     inchi = spectrum.get("inchi")
     parent_mass = spectrum.get("parent_mass")
+    if isinstance(parent_mass, np.ndarray):
+        parent_mass = parent_mass[0]
     formula = spectrum.get("formula")
 
     # 1) Search for matching compound name
