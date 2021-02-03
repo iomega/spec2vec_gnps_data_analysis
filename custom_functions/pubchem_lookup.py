@@ -1,3 +1,4 @@
+import logging
 import re
 import pubchempy as pcp
 import numpy as np
@@ -53,6 +54,7 @@ def pubchem_metadata_lookup(spectrum_in, name_search_depth=10, formula_search=Fa
                                                                                       verbose=verbose)
 
         if inchikey_pubchem is not None and inchi_pubchem is not None:
+            logging.info("Matching compound name: %s", compound_name)
             if verbose >= 1:
                 print(f"Matching compound name: {compound_name}")
             spectrum.set("inchikey", inchikey_pubchem)
@@ -78,6 +80,7 @@ def pubchem_metadata_lookup(spectrum_in, name_search_depth=10, formula_search=Fa
                 inchi_pubchem, inchikey_pubchem, smiles_pubchem = find_pubchem_mass_match(results_pubchem, parent_mass)
 
             if inchikey_pubchem is not None and inchi_pubchem is not None:
+                logging.info("Matching formula: %s", formula)
                 if verbose >= 1:
                     print(f"Matching formula: {formula}")
                 spectrum.set("inchikey", inchikey_pubchem)
@@ -253,6 +256,7 @@ def find_pubchem_inchi_match(results_pubchem,
                                          min_agreement=min_inchi_match)
 
         if match_inchi:
+            logging.info("Matching inchi: %s", inchi)
             if verbose >= 1:
                 print(f"Found matching compound for inchi: {inchi} (Pubchem: {inchi_pubchem}")
             break
@@ -302,6 +306,9 @@ def find_pubchem_mass_match(results_pubchem,
         match_mass = (np.abs(pubchem_mass - parent_mass) <= mass_tolerance)
 
         if match_mass:
+            logging.info("Matching molecular weight %s vs parent mass of %s",
+                         str(np.round(pubchem_mass,1)),
+                         str(np.round(parent_mass,1)))
             if verbose >= 1:
                 print(f"Matching molecular weight ({pubchem_mass:.1f} vs parent mass of {parent_mass:.1f})")
             break
