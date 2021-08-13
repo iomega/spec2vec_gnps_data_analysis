@@ -12,6 +12,14 @@ F. Huber, S. Verhoeven, C. Meijer, H. Spreeuw, E. M. Villanueva Castilla, C. Gen
 
 Thanks!
 
+## Tutorial on matchms and Spec2Vec
+Possibly the easiest way to learn how to run Spec2Vec is to follow our tutorial on `matchms` and `Spec2Vec`.
+
++ [Part I - Import and process MS/MS data using matchms](https://blog.esciencecenter.nl/build-your-own-mass-spectrometry-analysis-pipeline-in-python-using-matchms-part-i-d96c718c68ee)
++ [Part II - Compute spectral similarity using Spec2Vec](https://blog.esciencecenter.nl/build-a-mass-spectrometry-analysis-pipeline-in-python-using-matchms-part-ii-spec2vec-8aa639571018)
++ [Part III - Create molecular networks from Spec2Vec similarities](https://blog.esciencecenter.nl/build-a-mass-spectrometry-analysis-pipeline-in-python-using-matchms-part-iii-molecular-91891248ee34)
+
+
 ## Create environment
 Current spec2vec works with Python 3.7 or 3.8, it might also work with earlier versions but we haven't tested.
 ```
